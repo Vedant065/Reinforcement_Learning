@@ -1,0 +1,94 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+
+display(pd.read_csv('bandit_true_means.csv'))
+
+print("\nThis CSV file is loaded into the `loaded_true_means` variable, which is then used to initialize the Bandit:")
+print("bandit = Bandit(num_arms, true_means=loaded_true_means)")
+
+class Bandit:
+    def __init__(self, num_arms, true_means=None):
+        self.num_arms = num_arms
+        if true_means is not None:
+            if len(true_means) != num_arms:
+                raise ValueError("Length of true_means must match num_arms")
+            self.true_means = np.array(true_means)
+        else:
+            self.true_means = np.random.rand(num_arms)
+
+    def pull(self, arm_index):
+        if np.random.rand() < self.true_means[arm_index]:
+            return 1
+        else:
+            return 0
+
+    def get_true_means(self):
+        return self.true_means
+
+print("Bandit environment created.")
+class EpsilonGreedy:
+    def __init__(self, num_arms, epsilon):
+        self.num_arms = num_arms
+        self.epsilon = epsilon
+        self.q_values = np.zeros(num_arms)
+        self.action_counts = np.zeros(num_arms)
+
+    def choose_action(self):
+        if np.random.rand() < self.epsilon:
+            return np.random.randint(self.num_arms)
+        else:
+            return np.argmax(self.q_values)
+
+    def update(self, arm_index, reward):
+        self.action_counts[arm_index] += 1
+        alpha = 1 / self.action_counts[arm_index]
+        self.q_values[arm_index] += alpha * (reward - self.q_values[arm_index])
+
+print("Epsilon-Greedy strategy class defined.")
+num_arms = 5
+num_rounds = 1000
+epsilon = 0.1
+
+bandit = Bandit(num_arms, true_means=loaded_true_means)
+agent = EpsilonGreedy(num_arms, epsilon)
+
+rewards = []
+optimal_actions = []
+
+optimal_arm_index = np.argmax(bandit.get_true_means())
+
+for i in range(num_rounds):
+    action = agent.choose_action()
+    reward = bandit.pull(action)
+    agent.update(action, reward)
+
+    rewards.append(reward)
+    optimal_actions.append(1 if action == optimal_arm_index else 0)
+
+cumulative_average_reward = np.cumsum(rewards) / (np.arange(num_rounds) + 1)
+
+percentage_optimal_actions = np.cumsum(optimal_actions) / (np.arange(num_rounds) + 1)
+
+plt.figure(figsize=(12, 6))
+
+plt.subplot(1, 2, 1)
+plt.plot(cumulative_average_reward)
+plt.xlabel('Rounds')
+plt.ylabel('Cumulative Average Reward')
+plt.title('Epsilon-Greedy: Cumulative Average Reward')
+plt.grid(True)
+
+plt.subplot(1, 2, 2)
+plt.plot(percentage_optimal_actions * 100)
+plt.xlabel('Rounds')
+plt.ylabel('Percentage Optimal Actions (%)')
+plt.title('Epsilon-Greedy: Percentage of Optimal Actions')
+plt.grid(True)
+
+plt.tight_layout()
+plt.show()
+
+print(f"True means of the arms: {bandit.get_true_means()}")
+print(f"Estimated Q-values after {num_rounds} rounds: {agent.q_values}")
+print(f"Total reward obtained: {np.sum(rewards)}")
